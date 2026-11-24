@@ -3,14 +3,14 @@ import os
 import re
 import smtplib
 from email.message import EmailMessage
-
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
 app = Flask(__name__)
 
-# Replace with your actual GitHub Pages URL.
 CORS(app, origins=[
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
     "https://YOUR-USERNAME.github.io"
 ])
 
@@ -24,34 +24,26 @@ def enquiry():
     message = str(data.get("message", "")).strip()
 
     if not all([name, email, interest, message]):
-        return jsonify(success=False,
-                       message="Please fill all fields."), 400
+        return jsonify(message="Please fill all fields."), 400
 
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        return jsonify(success=False,
-                       message="Enter a valid email."), 400
+        return jsonify(message="Invalid email address."), 400
 
     mail = EmailMessage()
-    mail["Subject"] = f"New Website Enquiry - {interest}"
+    mail["Subject"] = f"Website enquiry - {interest}"
     mail["From"] = os.environ["SMTP_USER"]
     mail["To"] = os.environ["ENQUIRY_TO"]
     mail["Reply-To"] = email
 
-    mail.set_content(f"""
-New enquiry from Mamathex Technologies website
-
-Name: {name}
-Email: {email}
-Service: {interest}
-
-Message:
-{message}
-""")
+    mail.set_content(
+        f"Name: {name}\n"
+        f"Email: {email}\n"
+        f"Service: {interest}\n\n"
+        f"Message:\n{message}"
+    )
 
     try:
-        with smtplib.SMTP(
-            os.getenv("SMTP_HOST", "smtp.gmail.com"), 587
-        ) as server:
+        with smtplib.SMTP("smtp.gmail.com", 587) as server:
             server.starttls()
             server.login(
                 os.environ["SMTP_USER"],
@@ -59,22 +51,15 @@ Message:
             )
             server.send_message(mail)
 
-        return jsonify(
-            success=True,
-            message="Your enquiry has been sent successfully!"
-        )
+        return jsonify(message="Enquiry sent successfully!"), 200
 
     except Exception:
-        app.logger.exception("Email delivery failed")
-        return jsonify(
-            success=False,
-            message="Email could not be sent. Please try again."
-        ), 500
+        app.logger.exception("Email sending failed")
+        return jsonify(message="Email sending failed."), 500
 
-
-@app.get("/")
-def health():
-    return "Mamathex Technologies backend is running!"
+@app.route("/")
+def home():
+    return "Mamathex Python backend is running!"
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
